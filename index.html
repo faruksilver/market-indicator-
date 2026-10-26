@@ -1,0 +1,85 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Market Intelligence Pro</title>
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', sans-serif; padding: 20px; margin:0; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
+        .tab.active { background-color: #1f6feb; color: white; }
+        .tab { padding: 8px 16px; cursor: pointer; border-radius: 6px; font-weight: bold; color: #8b949e; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
+        .card { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
+        .header { display: flex; justify-content: space-between; border-bottom: 1px solid #30363d; padding-bottom: 10px; margin-bottom: 15px; }
+        .title { font-size: 1.1rem; font-weight: bold; color: #fff; }
+        .price { font-size: 1.3rem; color: #3fb950; font-weight: bold; }
+        .ind-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 10px; }
+        .ind-box { background-color: #21262d; padding: 5px; border-radius: 4px; text-align: center; font-size: 0.75rem; }
+        .ind-box b { display: block; color: #58a6ff; margin-top:3px;}
+        .fibo-row { font-size: 0.75rem; color: #8b949e; background: #21262d; padding: 8px; border-radius: 4px; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .fibo-val { color: #d29922; font-weight:bold;}
+        .btn { display: block; width: 100%; padding: 8px; background-color: #238636; color: white; text-align: center; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px; }
+        .news-item { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="tabs" id="tabs">
+        <div class="tab active" onclick="loadTab('BIST', this)">BIST 100 (Turkey)</div>
+        <div class="tab" onclick="loadTab('USStocks', this)">US Stocks</div>
+        <div class="tab" onclick="loadTab('DAX', this)">DAX (Germany)</div>
+        <div class="tab" onclick="loadTab('Crypto', this)">Crypto</div>
+        <div class="tab" onclick="loadTab('News', this)">Macro News</div>
+    </div>
+    <div class="grid" id="content"></div>
+    <script>
+        let globalData = {};
+        async function fetchData() {
+            try {
+                const response = await fetch('veri.json');
+                globalData = await response.json();
+                const activeTab = document.querySelector('.tab.active').innerText;
+                if (activeTab.includes('BIST')) loadTab('BIST');
+                else if (activeTab.includes('US')) loadTab('USStocks');
+                else if (activeTab.includes('DAX')) loadTab('DAX');
+                else if (activeTab.includes('Crypto')) loadTab('Crypto');
+                else loadTab('News');
+            } catch (e) { console.log("Hata:", e); }
+        }
+        function loadTab(tabName, element) {
+            if(element) { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); element.classList.add('active'); }
+            const container = document.getElementById('content');
+            container.innerHTML = ''; 
+            if (tabName === 'News') {
+                container.style.gridTemplateColumns = "1fr";
+                if(globalData.News) { globalData.News.forEach(news => { const div = document.createElement('div'); div.className = 'news-item'; div.innerHTML = `<div class="title">${news.Title}</div><div style="font-size:0.8rem; color:#8b949e; margin-top:5px;">📰 ${news.Source} | 🕒 ${news.Time}</div>`; container.appendChild(div); }); }
+                return;
+            }
+            container.style.gridTemplateColumns = "repeat(auto-fill, minmax(380px, 1fr))";
+            if (!globalData[tabName]) return;
+            globalData[tabName].forEach(asset => {
+                const curr = asset.Currency || '$';
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="header"><div class="title">${asset.Name} (${asset.Symbol})</div><div class="price">${curr}${asset.Price.toLocaleString()}</div></div>
+                    <div class="ind-grid">
+                        <div class="ind-box">EMA 20 <b>${curr}${asset.EMA20}</b></div>
+                        <div class="ind-box">EMA 50 <b>${curr}${asset.EMA50}</b></div>
+                        <div class="ind-box">EMA 200 <b>${curr}${asset.EMA200}</b></div>
+                        <div class="ind-box">RSI (14) <b>${asset.RSI}</b></div>
+                    </div>
+                    <div class="fibo-row"><span>Fib 0.382: <span class="fibo-val">${curr}${asset.Fib382}</span></span><span>Fib 0.618: <span class="fibo-val">${curr}${asset.Fib618}</span></span></div>
+                    <div class="fibo-row"><span>BB Upper: <span class="fibo-val" style="color:#3fb950">${curr}${asset.BBUpper}</span></span><span>BB Lower: <span class="fibo-val" style="color:#f85149">${curr}${asset.BBLower}</span></span></div>
+                    <div style="margin-top:15px; font-size:0.85rem;">
+                        <div style="display:flex; justify-content:space-between; color:#3fb950; margin-bottom:5px;"><span>LONG TARGET</span><span>${curr}${asset.LongTarget} (%${asset.LongProb})</span></div>
+                        <div style="display:flex; justify-content:space-between; color:#f85149;"><span>SHORT TARGET</span><span>${curr}${asset.ShortTarget} (%${asset.ShortProb})</span></div>
+                    </div>
+                    <a href="https://www.tradingview.com/chart/?symbol=${asset.Market}:${asset.Symbol}" target="_blank" class="btn">📊 Open Chart</a>
+                `;
+                container.appendChild(card);
+            });
+        }
+        fetchData();
+    </script>
+</body>
+</html>
